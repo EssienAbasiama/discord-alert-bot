@@ -18,7 +18,7 @@ console.log("📡 ALERT CHANNEL ID:", ALERT_CHANNEL_ID);
 console.log("==================================");
 
 // =====================
-// EXPRESS SERVER (Render keeps app alive)
+// EXPRESS SERVER
 // =====================
 app.get("/", (req, res) => {
     console.log("🌐 Health check request received");
@@ -42,18 +42,10 @@ const client = new Client({
 });
 
 // =====================
-// DISCORD DEBUG EVENTS
-// =====================
-client.on("debug", console.log);
-client.on("warn", console.warn);
-client.on("error", console.error);
-
-// =====================
 // READY EVENT
 // =====================
 client.once("ready", async () => {
     console.log("==================================");
-    console.log("🔥 READY EVENT FIRED SUCCESSFULLY");
     console.log(`🤖 BOT READY: ${client.user.tag}`);
     console.log(`🆔 ID: ${client.user.id}`);
     console.log(`📊 Servers: ${client.guilds.cache.size}`);
@@ -73,7 +65,7 @@ client.once("ready", async () => {
         console.log("📤 Startup message sent");
     } catch (err) {
         console.log("❌ ERROR FETCHING ALERT CHANNEL:");
-        console.error(err);
+        console.log(err);
     }
 });
 
@@ -96,51 +88,69 @@ client.on("guildMemberAdd", async member => {
         console.log("✅ Join alert sent");
     } catch (err) {
         console.log("❌ JOIN ALERT FAILED:");
-        console.error(err);
+        console.log(err);
     }
 });
 
 // =====================
-// MESSAGE DETECTION
+// MESSAGE DETECTION (FULL DEBUG VERSION)
 // =====================
 const keywords = ["crypto", "refund", "payment", "withdraw"];
 
 client.on("messageCreate", async message => {
+
+    // STEP 1: CONFIRM EVENT FIRED
     console.log("==================================");
     console.log("📩 MESSAGE EVENT FIRED");
 
-    console.log({
+    // STEP 2: RAW MESSAGE CHECK (CRITICAL DEBUG)
+    console.log("RAW MESSAGE OBJECT:", {
         content: message.content,
         author: message.author?.tag,
         bot: message.author?.bot,
         channel: message.channel?.name
     });
 
-    // ignore bots
-    if (message.author.bot) return;
-
-    const content = (message.content || "").toLowerCase();
-
-    if (!content) {
-        console.log("⚠️ Empty message content");
+    // STEP 3: BOT FILTER
+    if (message.author.bot) {
+        console.log("⛔ Ignored bot message");
         return;
     }
 
+    // STEP 4: CONTENT CHECK
+    const content = (message.content || "").toLowerCase();
+    console.log("🔍 Normalized content:", content);
+
+    if (!content) {
+        console.log("⚠️ Empty message content (INTENT ISSUE POSSIBLE)");
+        return;
+    }
+
+    // STEP 5: KEYWORD MATCHING DEBUG
     let detected = null;
 
     for (const keyword of keywords) {
-        if (content.includes(keyword)) {
+        const match = content.includes(keyword);
+        console.log(`➡️ Checking "${keyword}" => ${match}`);
+
+        if (match) {
             detected = keyword;
             break;
         }
     }
 
-    if (!detected) return;
+    if (!detected) {
+        console.log("❌ No keyword matched");
+        return;
+    }
 
     console.log(`⚠️ KEYWORD DETECTED: ${detected}`);
 
+    // STEP 6: SEND ALERT
     try {
         const channel = await client.channels.fetch(ALERT_CHANNEL_ID);
+
+        console.log("📤 Sending alert to channel...");
 
         await channel.send(
             `🚨 Keyword detected: ${detected}
@@ -152,21 +162,30 @@ client.on("messageCreate", async message => {
         console.log("✅ ALERT SENT SUCCESSFULLY");
     } catch (err) {
         console.log("❌ FAILED TO SEND ALERT:");
-        console.error(err);
+        console.log(err);
     }
 });
 
 // =====================
 // GLOBAL ERROR HANDLING
 // =====================
+client.on("error", err => {
+    console.log("❌ DISCORD CLIENT ERROR:");
+    console.log(err);
+});
+
+client.on("warn", info => {
+    console.log("⚠️ DISCORD WARNING:", info);
+});
+
 process.on("unhandledRejection", err => {
     console.log("❌ UNHANDLED PROMISE ERROR:");
-    console.error(err);
+    console.log(err);
 });
 
 process.on("uncaughtException", err => {
     console.log("❌ UNCAUGHT EXCEPTION:");
-    console.error(err);
+    console.log(err);
 });
 
 // =====================
@@ -176,14 +195,11 @@ console.log("🔐 Attempting Discord login...");
 
 if (!process.env.BOT_TOKEN) {
     console.log("❌ BOT_TOKEN MISSING");
-    process.exit(1);
 }
 
 client.login(process.env.BOT_TOKEN)
-    .then(() => {
-        console.log("✅ LOGIN PROMISE RESOLVED");
-    })
+    .then(() => console.log("✅ LOGIN SUCCESSFUL"))
     .catch(err => {
         console.log("❌ LOGIN FAILED:");
-        console.error(err);
+        console.log(err);
     });
