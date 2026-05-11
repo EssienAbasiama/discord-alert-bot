@@ -8,7 +8,17 @@ const PORT = process.env.PORT || 3000;
 const ALERT_CHANNEL_ID = "1502787696140222507";
 
 // =====================
-// EXPRESS SERVER LOGS
+// STARTUP DEBUG
+// =====================
+console.log("==================================");
+console.log("🚀 BOT STARTING...");
+console.log("🧠 Node Env:", process.env.NODE_ENV || "not set");
+console.log("🔑 BOT TOKEN EXISTS:", !!process.env.BOT_TOKEN);
+console.log("📡 ALERT CHANNEL ID:", ALERT_CHANNEL_ID);
+console.log("==================================");
+
+// =====================
+// EXPRESS SERVER
 // =====================
 app.get("/", (req, res) => {
     console.log("🌐 Health check request received");
@@ -17,7 +27,6 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`🚀 Server started on port ${PORT}`);
-    console.log("📡 Render instance is active");
 });
 
 // =====================
@@ -33,105 +42,132 @@ const client = new Client({
 });
 
 // =====================
-// BOT READY EVENT
+// READY EVENT
 // =====================
-client.once("ready", () => {
+client.once("ready", async () => {
     console.log("==================================");
-    console.log(`🤖 Bot logged in as: ${client.user.tag}`);
-    console.log(`🆔 Bot ID: ${client.user.id}`);
-    console.log("📡 Listening for events...");
+    console.log(`🤖 BOT READY: ${client.user.tag}`);
+    console.log(`🆔 ID: ${client.user.id}`);
+    console.log(`📊 Servers: ${client.guilds.cache.size}`);
     console.log("==================================");
 
-    const channel = client.channels.cache.get(ALERT_CHANNEL_ID);
+    try {
+        const channel = await client.channels.fetch(ALERT_CHANNEL_ID);
 
-    if (channel) {
-        console.log("✅ Alert channel found and ready");
-        channel.send("🤖 Bot is now online and monitoring events");
-    } else {
-        console.log("❌ ALERT CHANNEL NOT FOUND - check channel ID or permissions");
+        if (!channel) {
+            console.log("❌ ALERT CHANNEL NOT FOUND (fetch returned null)");
+            return;
+        }
+
+        console.log("✅ ALERT CHANNEL FOUND:", channel.name);
+
+        await channel.send("🤖 Bot is now online and monitoring events");
+        console.log("📤 Startup message sent");
+    } catch (err) {
+        console.log("❌ ERROR FETCHING ALERT CHANNEL:");
+        console.log(err);
     }
 });
 
 // =====================
-// NEW MEMBER JOIN LOGS
+// MEMBER JOIN
 // =====================
-client.on("guildMemberAdd", member => {
+client.on("guildMemberAdd", async member => {
     console.log("----------------------------------");
-    console.log("👤 New member joined detected");
-    console.log(`Username: ${member.user.username}`);
-    console.log(`User ID: ${member.user.id}`);
-    console.log(`Server: ${member.guild.name}`);
+    console.log("👤 NEW MEMBER EVENT");
+    console.log(`User: ${member.user.tag}`);
+    console.log(`Guild: ${member.guild.name}`);
+    console.log(`Guild ID: ${member.guild.id}`);
 
-    const alertChannel = client.channels.cache.get(ALERT_CHANNEL_ID);
+    try {
+        const channel = await client.channels.fetch(ALERT_CHANNEL_ID);
 
-    if (alertChannel) {
         console.log("📤 Sending join alert...");
-        alertChannel.send(`🚨 New member joined: ${member.user.username}`);
-        console.log("✅ Join alert sent successfully");
-    } else {
-        console.log("❌ Failed to find alert channel for join event");
+
+        await channel.send(`🚨 New member joined: ${member.user.username}`);
+
+        console.log("✅ Join alert sent");
+    } catch (err) {
+        console.log("❌ JOIN ALERT FAILED:");
+        console.log(err);
     }
 });
 
 // =====================
-// KEYWORD DETECTION LOGS
+// MESSAGE DETECTION
 // =====================
 const keywords = ["crypto", "refund", "payment", "withdraw"];
 
-client.on("messageCreate", message => {
+client.on("messageCreate", async message => {
     if (message.author.bot) return;
 
     console.log("----------------------------------");
-    console.log("💬 Message detected");
-    console.log(`User: ${message.author.username}`);
+    console.log("💬 MESSAGE EVENT");
+    console.log(`User: ${message.author.tag}`);
     console.log(`Channel: ${message.channel.name}`);
     console.log(`Content: ${message.content}`);
 
     const content = message.content.toLowerCase();
 
-    const detected = keywords.find(keyword =>
-        content.includes(keyword)
-    );
+    const detected = keywords.find(k => content.includes(k));
 
-    if (detected) {
-        console.log(`⚠️ Keyword detected: ${detected}`);
+    if (!detected) return;
 
-        const alertChannel = client.channels.cache.get(ALERT_CHANNEL_ID);
+    console.log(`⚠️ KEYWORD MATCHED: ${detected}`);
 
-        if (alertChannel) {
-            console.log("📤 Sending keyword alert...");
-            alertChannel.send(
-                `🚨 Keyword detected: ${detected}
+    try {
+        const channel = await client.channels.fetch(ALERT_CHANNEL_ID);
+
+        await channel.send(
+            `🚨 Keyword detected: ${detected}
 👤 User: ${message.author.username}
 💬 Message: ${message.content}
 📍 Channel: ${message.channel.name}`
-            );
-            console.log("✅ Keyword alert sent successfully");
-        } else {
-            console.log("❌ Alert channel not found for keyword event");
-        }
+        );
+
+        console.log("✅ Keyword alert sent");
+    } catch (err) {
+        console.log("❌ KEYWORD ALERT FAILED:");
+        console.log(err);
     }
 });
 
 // =====================
-// ERROR HANDLING (VERY IMPORTANT)
+// GLOBAL ERROR HANDLING
 // =====================
-client.on("error", error => {
-    console.log("❌ Discord client error:", error);
+client.on("error", err => {
+    console.log("❌ DISCORD CLIENT ERROR:");
+    console.log(err);
 });
 
-process.on("unhandledRejection", error => {
-    console.log("❌ Unhandled promise error:", error);
+client.on("warn", info => {
+    console.log("⚠️ DISCORD WARNING:", info);
+});
+
+process.on("unhandledRejection", err => {
+    console.log("❌ UNHANDLED PROMISE ERROR:");
+    console.log(err);
+});
+
+process.on("uncaughtException", err => {
+    console.log("❌ UNCAUGHT EXCEPTION:");
+    console.log(err);
 });
 
 // =====================
 // LOGIN
 // =====================
-console.log("🔐 Attempting to log in to Discord...");
+console.log("🔐 Attempting Discord login...");
+
+if (!process.env.BOT_TOKEN) {
+    console.log("❌ BOT_TOKEN is missing in environment variables!");
+}
+
 client.login(process.env.BOT_TOKEN)
     .then(() => {
-        console.log("✅ Login request successful");
+        console.log("✅ LOGIN SUCCESSFUL");
     })
     .catch(err => {
-        console.log("❌ Login failed:", err);
+        console.log("❌ LOGIN FAILED:");
+        console.log(err);
     });
