@@ -5,12 +5,15 @@ const { Client, GatewayIntentBits } = require("discord.js");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// YOUR ALERT CHANNEL ID (from Discord)
+const ALERT_CHANNEL_ID = "1502787696140222507";
+
 // Dummy route for Render
 app.get("/", (req, res) => {
     res.send("Discord bot is running");
 });
 
-// Start HTTP server
+// Start HTTP server (needed for Render)
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
@@ -31,34 +34,37 @@ client.once("ready", () => {
     console.log(`Logged in as ${client.user.tag}`);
 });
 
+// NEW MEMBER JOIN
 client.on("guildMemberAdd", member => {
-    const alertChannel = member.guild.channels.cache.find(
-        ch => ch.name === "alerts"
-    );
+    const alertChannel = client.channels.cache.get(ALERT_CHANNEL_ID);
 
     if (alertChannel) {
-        alertChannel.send(`New member joined: ${member.user.username}`);
+        alertChannel.send(
+            `🚨 New member joined: ${member.user.username}`
+        );
     }
 });
 
+// KEYWORD DETECTION
 client.on("messageCreate", message => {
     if (message.author.bot) return;
 
+    const content = message.content.toLowerCase();
+
     const detected = keywords.find(keyword =>
-        message.content.toLowerCase().includes(keyword)
+        content.includes(keyword)
     );
 
     if (detected) {
-        const alertChannel = message.guild.channels.cache.find(
-            ch => ch.name === "alerts"
-        );
+        const alertChannel = client.channels.cache.get(ALERT_CHANNEL_ID);
 
         if (alertChannel) {
-            alertChannel.send(`
-Keyword detected: ${detected}
+            alertChannel.send(
+                `🚨 Keyword detected: ${detected}
 User: ${message.author.username}
 Message: ${message.content}
-      `);
+Channel: ${message.channel.name}`
+            );
         }
     }
 });
