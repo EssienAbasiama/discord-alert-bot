@@ -1,6 +1,21 @@
 require("dotenv").config();
+const express = require("express");
 const { Client, GatewayIntentBits } = require("discord.js");
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Dummy route for Render
+app.get("/", (req, res) => {
+    res.send("Discord bot is running");
+});
+
+// Start HTTP server
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+// Discord bot
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -16,27 +31,21 @@ client.once("ready", () => {
     console.log(`Logged in as ${client.user.tag}`);
 });
 
-// New user joins
 client.on("guildMemberAdd", member => {
     const alertChannel = member.guild.channels.cache.find(
         ch => ch.name === "alerts"
     );
 
     if (alertChannel) {
-        alertChannel.send(
-            `🚨 New member joined: ${member.user.username}`
-        );
+        alertChannel.send(`New member joined: ${member.user.username}`);
     }
 });
 
-// Keyword detection
 client.on("messageCreate", message => {
     if (message.author.bot) return;
 
-    const content = message.content.toLowerCase();
-
     const detected = keywords.find(keyword =>
-        content.includes(keyword)
+        message.content.toLowerCase().includes(keyword)
     );
 
     if (detected) {
@@ -46,9 +55,8 @@ client.on("messageCreate", message => {
 
         if (alertChannel) {
             alertChannel.send(`
-🚨 Keyword detected: ${detected}
+Keyword detected: ${detected}
 User: ${message.author.username}
-Channel: ${message.channel.name}
 Message: ${message.content}
       `);
         }
